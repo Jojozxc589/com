@@ -1,0 +1,61 @@
+/////////ข้อมูลevent
+$app->get('/showevent1', function (Request $request, Response $response, array $args) use ($conn) {
+    // ตรวจสอบการเชื่อมต่อฐานข้อมูล
+    if (!$conn) {
+        return $response->withStatus(500)
+                        ->withHeader('Content-Type', 'application/json')
+                        ->write(json_encode(["error" => "Database connection failed."]));
+    }
+
+    $sql = "SELECT event_code , event_name, start_date, end_date FROM events";  // ใช้ชื่อ table ที่ถูกต้อง
+
+    // Execute the query
+    $result = $conn->query($sql);
+
+    // ตรวจสอบว่าคำสั่ง SQL ทำงานได้หรือไม่
+    if ($result === false) {
+        return $response->withStatus(500)
+                        ->withHeader('Content-Type', 'application/json')
+                        ->write(json_encode(["error" => "Failed to execute query: " . $conn->error]));
+    }
+
+    error_log("SQL Query: " . $sql);
+    error_log("Result Count: " . $result->num_rows);
+
+    // ตรวจสอบว่ามีผลลัพธ์หรือไม่
+    if ($result->num_rows > 0) {
+        $getAllEvents = $result->fetch_all(MYSQLI_ASSOC);
+        $response->getBody()->write(json_encode($getAllEvents));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    } else {
+        return $response->withHeader('Content-Type', 'application/json')
+                        ->withStatus(404)
+                        ->write(json_encode(['message' => 'No events found']));  // เปลี่ยนข้อความให้สอดคล้อง
+    }
+});
+
+
+////แก้ไขevent
+$app->post('/updateEvent15', function (Request $request, Response $response, array $args) use ($conn) {
+    $body = $request->getBody();
+    $bodyArr = json_decode($body, true);
+
+    $event_code = htmlspecialchars($bodyArr['event_code']);
+    $event_name = htmlspecialchars($bodyArr['event_name']);
+    $start_date = htmlspecialchars($bodyArr['start_date']);
+    $end_date = htmlspecialchars($bodyArr['end_date']);
+
+    $stmt = $conn->prepare("UPDATE events SET event_name = ?, start_date = ?, end_date = ? WHERE event_code = ?");
+    $stmt->bind_param("ssss", $event_name, $start_date, $end_date, $event_code);
+
+    if ($stmt->execute()) {
+        $response->getBody()->write(json_encode(['success' => 'Event updated successfully']));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    } else {
+        $response->getBody()->write(json_encode(['error' => 'Failed to update event']));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+});
+
+
+?>
